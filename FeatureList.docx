@@ -1,0 +1,24 @@
+﻿Read DU command code
+
+(Read DU code WAEL SEND THE CODE!!!!! and link to  features)
+
+Feature List:
+
+GUI:
+Basic List View from partitions to files
+Concentric circles view**
+Info on Hover (size,type, location)
+
+Actual Code:
+Search for file
+Read Extra drives (make it fast)
+Show files with the biggest sizes
+Show their extensions
+Portable
+Delete folders/files right from interface**
+Open in explorer
+
+
+Extras:
+(Automatically Refresh if we have time)
+Delete duplicate files
