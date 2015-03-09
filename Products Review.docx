@@ -1,0 +1,24 @@
+﻿Echo
+Environment Variables: not affected by exec
+IO redirection: wild card expansion, shell globing.
+? substituted for one character
+* for many
+so for example: ?r* will give you all files with R as the second file. 
+?[re]* will produce a list of all files with their second lecture being wirhter E or R
+> adds output to file, deleting all previous data
+>> appends to file
+file_discriptor>&another_file_discriptor (example 2>&1): takes file_descriptor to where the another_file_discriptor is going.
+Cat
+less
+touch opens files, or if not existing, it creates a file of length zero.
+| ?????
+rm f*
+rm f\*
+escape characters
+command subsitution
+“ and ' quotes
+
+regular expressions
+for grep, * means zero or more of previous character
+for grep, . Means a single character
+
