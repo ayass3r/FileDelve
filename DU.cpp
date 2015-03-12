@@ -1,3 +1,6 @@
+#include <QChar>
+#include <QDir>
+#include <QString>
 
 #include <dirent.h> //Directory Entries Format
 #include <unistd.h> //All ffollowing 3 required for lstat system call
@@ -7,15 +10,17 @@
 #include <fcntl.h>
 #include <time.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <string.h>
 #include <pwd.h>
 #include <grp.h>
-#include <stdbool.h>
-
+#include <errno.h>
+#include <getopt.h>
+#include <QDebug>
+#include <stdio.h>
+#include <string.h>
 
 //Declaring FileType. Using typedef enum to prevent other types from being added
-typedef enum {Direct, File, Character, Block, SystemLink, Unknown} FileType
+typedef enum {Direct, File, Character, Block, SystemLink, Unknown} FileType;
 
 //Declaring File Statistics
 struct FileStat{
@@ -33,17 +38,20 @@ struct FileStat{
 
 //Prototypes
 int StatFile( char *Path, char *Name, struct FileStat *StatBuffer, int Flags);
-void Print(struct FileStat *Stats, int Flags);
+void Print(struct FileStat *Stats, int Flags, bool &More , char* WholePath);
 long long Directory(char *RDirectory, int flags);
 int HumanFormat(long long Number, char *Format);
+int Traverse(int argc, char **argv);
 
 int main (int argc, char **argv)
 {
-  Du-> example.txt //Revise Enterprize
+  freopen("example.txt", "wt", stdout);
+  //DU.c-> example.txt; //Revise Enterprize
   char *Directory;
   char Path[2048];
   char HFormat[10];
-  QDir *DirectoryQT;
+  DIR *DirectoryQT;
+  bool More = 0;
   struct dirent *DirInode;  //Enterprize??
   int Flags = 0;
   int Options;
@@ -55,11 +63,11 @@ int main (int argc, char **argv)
   int Stat;
 
 
-  for(i = 1; i < argc; i++)
+  for(i = 0; i < argc; i++)
     if(argv[i][0] != '-')
-      argv_count++;
-    while ((Option = getopt(argc, argv)) != -1) {
-      switch (Option) {
+      argvCount++;
+    while ((Options = getopt(argc, argv, "irbsdaAtloHh")) != -1) {
+      switch (Options) {
         case 'i':
           Flags |= 1;
           break;
@@ -86,7 +94,7 @@ int main (int argc, char **argv)
           break;
         case 'l':
           Flags |= 256;
-          break;   
+          break;
         case 'o':
           Flags |= 512;
           break;
@@ -106,7 +114,6 @@ int main (int argc, char **argv)
           printf("-s\tShow file Size\n");
           printf("-d\tShow directories\n");
           printf("-a\tShow all files including hidden files\n");
-          printf("-A\tShow all attributes\n");
           printf("-t\tShow file Type\n");
           printf("-l\tShow Link\n");
           printf("-o\tShow file owner\n");
@@ -114,12 +121,13 @@ int main (int argc, char **argv)
           break;
         case 'f':
           Flags |= 2048;
-          break;   
+          break;
         default:
-           fprintf(stderr, "Invalid option %c, Usage: %s [-options] <Path>\n", Option, argv[0]);
+           fprintf(stderr, "Invalid option %c, Usage: %s [-options] <Path>\n", Options, argv[0]);
            exit(EXIT_FAILURE);
       }
   }
+
 
   if (argvCount > 1){
     fprintf(stderr, "Usage: %s [-options] <path>\n", argv[0]);
@@ -127,75 +135,79 @@ int main (int argc, char **argv)
   }else if (argvCount == 0)
     Directory = "/";
   else
-    Directory = argv[optind];
+    Directory = argv[0];
 
   if(strcmp(Directory, ".") != 0 && strcmp(Directory, "..") != 0){
-      
+
 
       if (lstat(Directory, &Buffer) == -1) {
                perror("Stat");
       }
 
       TotalSize = (long long) Buffer.st_size;
-      
+
   }
 
-  if((DirectoryQT = opendir(Directory)) == NULL){
+  Directory = "/home/ayass3r/CJF/";  ///UNTIL GUI THEN REMOVE THIS LINE AND SEND THE PATH IN THE ARGV!! MAKE SURE YOU PASS THE ENDING SLASH!!
+    DirectoryQT = opendir(Directory);
+   qDebug() << errno;
+  if(DirectoryQT == NULL){
     perror("opendir");
     exit(1);
   }
 
 
-
   while((DirInode = readdir(DirectoryQT)) != NULL){
 
-    if(DirInode->d_name[0] != '.' || (Flags & FLAG_SHOW_ALL_FILES)){
-      
+    if(DirInode->d_name[0] != '.' || (Flags & 32)){
 
       if(StatFile(Directory, DirInode->d_name, &StatBuffer, Flags) != 0){
         sprintf(Path, "Stat error while opening %s%s", Directory, DirInode->d_name);
         perror(Path);
       }else{
-        //print_stat(&StatBuffer, Flags);
+        Print(&StatBuffer, Flags, More, Path);
         TotalSize += StatBuffer.TotalSize;
+        if (More = 1)
+            bool Success = Traverse(argc, argv);
       }
-        
+
     }
   }
 
-  if (Flags & FLAG_SHOW_HUMAN_FORMAT){
-      get_human_format(TotalSize, h_format);
-      printf("Total directory Size: %s\n", h_format);
+  if (Flags & 1024){
+      HumanFormat(TotalSize, HFormat);
+      printf("Total directory Size: %s\n", HFormat);
   }else{
       printf("Total directory Size: %lldB\n", TotalSize);
   }
 
-  closedir(DirectoryQT);  
-  
+  closedir(DirectoryQT);
+
   return 0;
 }
 
 
 int StatFile( char *Path, char *Name, struct FileStat *StatBuffer, int Flags)
-{ 
+{
   int FileDirectory;
   struct stat Buffer;
-  char Path[2048];
+  char FullPath[2048];
 
-  if (path[strlen(path) - 1] != '/')  //Add a missing / if absent
-    strcat(path, "/");
+ // if (Path[strlen(Path) - 1] != '/')  //Add a missing / if absent
+ //   strcat(Path, "/");
 
-  sprintf(Path, "%s%s", Path, Name); 
+  sprintf(FullPath, "%s%s", Path, Name);
 
-  if ((FileDirectory=open(Path, O_RDONLY)) < 0){
+
+  if ((FileDirectory=open(FullPath, O_RDONLY)) < 0){
      return -1;
   }
 
-  if (lstat(Path, &Buffer) == -1) {
+  if (lstat(FullPath, &Buffer) == -1) {
     return -1;
   }
 
- strcpy(StatBuffer->Name, Name);
+ strcpy(StatBuffer->Name, FullPath);
  switch (Buffer.st_mode & S_IFMT) {
    case S_IFBLK: StatBuffer->Type = Block;   break;
    case S_IFCHR: StatBuffer->Type = Character;  break;
@@ -209,7 +221,7 @@ int StatFile( char *Path, char *Name, struct FileStat *StatBuffer, int Flags)
  StatBuffer->Link = (long) Buffer.st_nlink;
  strcpy(StatBuffer->User, getpwuid(Buffer.st_uid)->pw_name);
  strcpy(StatBuffer->Group, getgrgid(Buffer.st_gid)->gr_name);
- 
+
  if (((!(Flags & 2048)) || ((Buffer.st_mode & S_IFMT) == S_IFDIR) || ((Buffer.st_mode & S_IFMT) == S_IFREG)) && !(Buffer.st_blocks == 0)){
    StatBuffer->Size = (long long) Buffer.st_size;
    StatBuffer->TotalSize = (long long) Buffer.st_size;
@@ -217,19 +229,20 @@ int StatFile( char *Path, char *Name, struct FileStat *StatBuffer, int Flags)
    StatBuffer->Size = 0;
    StatBuffer->TotalSize = (long long) 0;
  }
- 
+
  if (((Flags & 2) || (Flags & 64)) && StatBuffer->Type == Direct){
-    StatBuffer->TotalSize += get_dir_size(Path, Flags);
+    StatBuffer->TotalSize += Directory(Path, Flags);
  }
- 
+
  StatBuffer->NumberOfBlocks = (long long) Buffer.st_blocks;
 
  return close(FileDirectory);
 }
 
-void Print(struct FileStat *Stats, int Flags);
+void Print(struct FileStat *Stats, int Flags, bool &More , char* WholePath)
 {
-  char h_format[10];
+  char HFormat[10];
+
   if(Flags & 128 || Flags & 64)
     switch (Stats->Type) {
      case Block:  printf("b ");   break;
@@ -240,33 +253,37 @@ void Print(struct FileStat *Stats, int Flags);
      default:       printf("- ");   break;
    }
    if(Flags & 1 || Flags & 64)
-      printf("%8ld ", Stats->Inode);
+      printf("%8ld\t\t", Stats->Inode);
    if(Flags & 256 || Flags & 64)
-      printf("%8ld ", Stats->Link);
-   if(Flags & 256 || Flags & 64)
-      printf("%8ld  ", Stats->Link);
+      printf("%8ld\t\t", Stats->Link);
    if(Flags & 512 || Flags & 64)
-      printf("%4s:%4s  ", Stats->User, Stats->Group);
+      printf("%4s:%4s\t\t", Stats->User, Stats->Group);
    if(Flags & 8 || Flags & 64){
       if (Flags & 1024){
-        get_human_format(Stats->Size, h_format);
-        printf("%s ", h_format);
+        HumanFormat(Stats->Size, HFormat);
+        printf("%s\t\t", HFormat);
       }else
-        printf("%lldB  ", Stats->Size);
-      
+        printf("%lldB\t\t", Stats->Size);
+
    }
-   if(Flags & 2 || F
-    lags & 64){
+   if(Flags & 2 || Flags & 64){
       if (Flags & 1024){
-        get_human_format(Stats->TotalSize, h_format);
-        printf("%s ", h_format);
+        HumanFormat(Stats->TotalSize, HFormat);
+        printf("%s\t\t", HFormat);
       }else
-         printf("%lldB  ", Stats->TotalSize);
-      
+         printf("%lldB\t\t", Stats->TotalSize);
+
    }
    if(Flags & 4 || Flags & 64)
-      printf("%5lldb ", Stats->NumberOfBlocks);
-   printf("%s \n", Stats->Name);
+      printf("%5lldb\t\t", Stats->NumberOfBlocks);
+   printf("%s\n", Stats->Name);
+
+   if (Stats->Type == Direct)
+       More = 1;
+   else
+       More = 0;
+
+  WholePath = Stats->Name;
 }
 
 long long Directory(char *RDirectory, int Flags)
@@ -288,18 +305,18 @@ long long Directory(char *RDirectory, int Flags)
 
 
   while((DirInode = readdir(DirectoryQT)) != NULL){
-    if(strcmp(DirInode->d_name, ".") != 0 && strcmp(DirInode->d_name, "..") != 0){    
-      strcpy(Path, r_dir);
+    if(strcmp(DirInode->d_name, ".") != 0 && strcmp(DirInode->d_name, "..") != 0){
+      strcpy(Path, RDirectory);
       strcat(Path, DirInode->d_name);
       if (lstat(Path, &Buffer) == -1) {
                 perror("Stat");
                 continue;
         }
 
-        if (((!(Flags & FLAG_ONLY_FILES_AND_DIRS)) || ((Buffer.st_mode & S_IFMT) == S_IFDIR) || ((Buffer.st_mode & S_IFMT) == S_IFREG)) && !(Buffer.st_blocks == 0))
+        if (((!(Flags & 8)) || ((Buffer.st_mode & S_IFMT) == S_IFDIR) || ((Buffer.st_mode & S_IFMT) == S_IFREG)) && !(Buffer.st_blocks == 0))
           TotalSize += (long long) Buffer.st_size;
         if((Buffer.st_mode & S_IFMT & S_IFDIR) && !((Buffer.st_mode & S_IFMT & S_IFLNK))){
-            TotalSize += get_dir_size(Path, Flags);
+            TotalSize += Directory(Path, Flags);
         }
     }
     }
@@ -311,14 +328,152 @@ long long Directory(char *RDirectory, int Flags)
 int HumanFormat(long long Number, char *Format)
 {
   if (Number <= 1000){
-    return sprintf(Format, "%lldB", Number);
+    return sprintf(Format, "%lldB\t\t", Number);
   }else if (Number <= 1000000){
-    return sprintf(Format, "%1.1fKBs", (float)Number / 1000.0);
+    return sprintf(Format, "%1.1fKBs\t\t", (float)Number / 1000.0);
   }else if(Number <= 1000000000){
-    return sprintf(Format, "%1.1fMBs", (float)Number / 1000000.0);
+    return sprintf(Format, "%1.1fMBs\t\t", (float)Number / 1000000.0);
   }else{
-    return sprintf(Format, "%1.1fGBs", (float)Number / 1000000000.0);
+    return sprintf(Format, "%1.1fGBs\t\t", (float)Number / 1000000000.0);
   }
+}
+
+int Traverse(int argc, char **argv)
+{
+  char *Directory;
+  char Path[2048];
+  char HFormat[10];
+  DIR *DirectoryQT;
+  struct dirent *DirInode;  //Enterprize??
+  int Flags = 0;
+  int Options;
+  bool More = 0;
+  int argvCount = 0;
+  int i; //for loop, needed later on
+  long TotalSize = 0;
+  struct stat Buffer; //Enterprize???
+  struct FileStat StatBuffer;
+  char *slash = "/";
+
+
+  for(i = 0; i < argc; i++)
+    if(argv[i][0] != '-')
+      argvCount++;
+    while ((Options = getopt(argc, argv, "irbsdaAtloHh")) != -1) {
+      switch (Options) {
+        case 'i':
+          Flags |= 1;
+          break;
+        case 'r':
+          Flags |= 2;
+          break;
+        case 'b':
+          Flags |= 4;
+          break;
+        case 's':
+          Flags |= 8;
+          break;
+        case 'd':
+          Flags |= 16;
+          break;
+        case 'a':
+          Flags |= 32;
+          break;
+        case 'A':
+          Flags |= 64;
+          break;
+        case 't':
+          Flags |= 128;
+          break;
+        case 'l':
+          Flags |= 256;
+          break;
+        case 'o':
+          Flags |= 512;
+          break;
+        case 'H':
+          Flags |= 1024;
+          break;
+        case 'h':
+          printf("Disk Analyzer 0.1\n");
+          printf("Usage: %s [-options] <path>\n", argv[0]);
+          printf("Options: \n");
+          printf("-H\tShow sizes in human readable format\n");
+          printf("-f\tCalculate regular files and directoris only\n");
+          printf("-h\tDisplay this help\n");
+          printf("-i\tShow Inode value\n");
+          printf("-r\tAnalyze directories recursively\n");
+          printf("-b\tShow occupied blocks on the disk\n");
+          printf("-s\tShow file Size\n");
+          printf("-d\tShow directories\n");
+          printf("-a\tShow all files including hidden files\n");
+          printf("-t\tShow file Type\n");
+          printf("-l\tShow Link\n");
+          printf("-o\tShow file owner\n");
+          exit(0);
+          break;
+        case 'f':
+          Flags |= 2048;
+          break;
+        default:
+           fprintf(stderr, "Invalid option %c, Usage: %s [-options] <Path>\n", Options, argv[0]);
+           exit(EXIT_FAILURE);
+      }
+  }
+
+
+  if (argvCount > 1){
+    fprintf(stderr, "Usage: %s [-options] <path>\n", argv[0]);
+    exit(1);
+  }else if (argvCount == 0)
+    Directory = "/";
+  else
+    Directory = "/";
+  if(strcmp(Directory, ".") != 0 && strcmp(Directory, "..") != 0){
+
+
+      if (lstat(Directory, &Buffer) == -1) {
+               perror("Stat");
+      }
+
+      TotalSize = (long long) Buffer.st_size;
+
+  }
+    strcat(Directory,slash);
+    DirectoryQT = opendir(Directory);
+   qDebug() << errno;
+  if(DirectoryQT == NULL){
+    perror("opendir");
+    exit(1);
+  }
+
+
+
+  while((DirInode = readdir(DirectoryQT)) != NULL){
+
+    if(DirInode->d_name[0] != '.' || (Flags & 32)){
+
+      if(StatFile(Directory, DirInode->d_name, &StatBuffer, Flags) != 0){
+        sprintf(Path, "Stat error while opening %s%s", Directory, DirInode->d_name);
+        perror(Path);
+      }else{
+        Print(&StatBuffer, Flags, More, Path );
+        TotalSize += StatBuffer.TotalSize;
+      }
+
+    }
+  }
+
+  if (Flags & 1024){
+      HumanFormat(TotalSize, HFormat);
+      printf("Total directory Size: %s\n", HFormat);
+  }else{
+      printf("Total directory Size: %lldB\n", TotalSize);
+  }
+
+  closedir(DirectoryQT);
+
+  return 0;
 }
 
 
